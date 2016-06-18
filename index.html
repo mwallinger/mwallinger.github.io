@@ -83,6 +83,10 @@
       top: 100%;
       left: 0;
     }
+    
+    .container{width:100%;}
+    .left{float:left;width:50%;}
+    .right{float:right;width:50%;}
 </style>
 
 <body>
@@ -100,16 +104,34 @@
         <div id="current-date"></div>
     </div>
     
-    <div id="chart1">
-        <svg></svg>
+    <div class="container">
+        <div id="chart1" class="left">
+            <svg></svg>
+        </div>
+
+        <div id="chart2" class="right">
+            <svg></svg>
+        </div>
     </div>
     
-    <div id="chart2">
-        <svg></svg>
+    <div class="container">
+        <div id="chart3" class="left">
+            <svg></svg>
+        </div>
+
+        <div id="chart4" class="right">
+            <svg></svg>
+        </div>
     </div>
     
-    <div id="chart3">
-        <svg></svg>
+    <div class="container">
+        <div id="chart5" class="left">
+            <svg></svg>
+        </div>
+
+        <div id="chart6" class="right">
+            <svg></svg>
+        </div>
     </div>
     
     <script>
@@ -154,9 +176,9 @@
                     title: "Temperature",
                     description: "Water temperature of the San Francisco Bay Area",
                     data: [],
-                    width: 650,
+                    width: 500,
                     height: 300,
-                    target: '#chart1',
+                    target: '#chart3',
                     x_accessor: 'date',
                     y_accessor: 'val',
                     min_x: new Date('1993-01-01'),
@@ -166,9 +188,9 @@
 
        var oxyGraph = {
                     title: "Oxygen",
-                    description: "Oxygen level of the San Francisco Bay Area",
+                    description: "Oxygen measures of the water in the San Francisco Bay Area",
                     data: [],
-                    width: 600,
+                    width: 500,
                     height: 300,
                     target: '#chart2',
                     min_x: new Date('1993-01-01'),
@@ -182,11 +204,29 @@
                     title: "Chlorophyl A.PHA",
                     description: "Ratio of chlorophyll a to the sum of chlorophyll a + phaeopigments. Phaeopigments are a degradation product of chlorophyll. It is a ratio between 1.0 and 0.0. Near 1 means the phytoplankton population is growing quickly. Low ratio means that blooms terminate.",
                     data: [],
-                    width: 600,
+                    width: 500,
                     height: 300,
-                    target: '#chart3',
+                    target: '#chart1',
                     min_x: new Date('1993-01-01'),
                     max_x: new Date('2015-01-01'),
+                    min_y: 0.01,
+                    missing_is_hidden: true,
+                    x_accessor: 'date',
+                    y_accessor: 'val',
+                    linked: true
+        };
+        
+       var chlorGraph = {
+                    title: "Chlorophyl",
+                    description: "Chlorophyl measure of the water in the San Francisco bay area",
+                    data: [],
+                    width: 500,
+                    height: 300,
+                    target: '#chart4',
+                    min_x: new Date('1993-01-01'),
+                    max_x: new Date('2015-01-01'),
+                    min_y: 0.01,
+                    missing_is_hidden: true,
                     x_accessor: 'date',
                     y_accessor: 'val',
                     linked: true
@@ -296,17 +336,20 @@
                     tempGraph.min_x = dates[+values[handle]];
                     oxyGraph.min_x = dates[+values[handle]];
                     chlorphaGraph.min_x = dates[+values[handle]];
+                    chlorGraph.min_x = dates[+values[handle]];
                 } 
 
                 if(handle==1){
                     tempGraph.max_x = dates[+values[handle]];
                     oxyGraph.max_x = dates[+values[handle]];
                     chlorphaGraph.max_x = dates[+values[handle]];
+                    chlorGraph.max_x = dates[+values[handle]];
                 }
 
                 MG.data_graphic(tempGraph);
                 MG.data_graphic(oxyGraph);
                 MG.data_graphic(chlorphaGraph);
+                MG.data_graphic(chlorGraph);
 
                 updateDatePicker(dateSlider.noUiSlider.get());
             });
@@ -327,9 +370,11 @@
             oxyGraph.data = datasets[t].oxygen;
             tempGraph.data = datasets[t].temperature;
             chlorphaGraph.data = datasets[t].chlorpha;
+            chlorGraph.data = datasets[t].chlor;
             MG.data_graphic(oxyGraph);
             MG.data_graphic(tempGraph);
             MG.data_graphic(chlorphaGraph);
+            MG.data_graphic(chlorGraph);
         }
         
         var map = new google.maps.Map(d3.select("#map").node(), {
@@ -456,12 +501,14 @@
                 
                 oxyGraph.data = dataByStation["33"].oxygen;
                 tempGraph.data = dataByStation["33"].temperature;
-                chlorphaGraph.data = dataByStation["33"].chlorpha
+                chlorphaGraph.data = dataByStation["33"].chlorpha;
+                chlorGraph.data = dataByStation["33"].chlor;
  
 
                 MG.data_graphic(tempGraph);
                 MG.data_graphic(oxyGraph);
                 MG.data_graphic(chlorphaGraph);
+                MG.data_graphic(chlorGraph);
             });
         });
 
