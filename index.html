@@ -10,13 +10,15 @@
 
   <link rel="stylesheet" href="css/metricsgraphics.css">
   <link rel="stylesheet" href="css/iThing-min.css">
+  <link href="lib/noUiSlider/nouislider.min.css" rel="stylesheet">
   <script src="lib/jquery-3.0.0.min.js"></script>
   <script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
   <script src="https://maps.googleapis.com/maps/api/js?sensor=false"></script> 
   <script src="lib/metricsGraphics/metricsgraphics.js"></script>
   <script src="lib/noUiSlider/wNumb.js"></script>
   <script src="lib/d3-tip.js"></script>
-  <link href="lib/noUiSlider/nouislider.min.css" rel="stylesheet">
+  <script src="scripts.js"></script>
+  
 
 
 </head>
@@ -168,37 +170,16 @@
         var marker;
         var layer;
         var projection;
+        var dates = [];
         
-        var getChlorColor = function(value){
-            if (value <= 0){
-                return "#B6B6B4"
-            } else if (value <= 0.1){
-                return "#a50026";
-            }else if (value <= 0.2){
-                return "#d73027";
-            }else if (value <= 0.3){
-                return "#f46d43";
-            }else if (value <= 0.4){
-                return "#fdae61"
-            }else if (value <= 0.5){
-                return "#fee08b";
-            }else if (value <= 0.6){
-                return "#d9ef8b";
-            }else if (value <= 0.7){
-                return "#a6d96a";
-            }else if (value <= 0.8){
-                return "#66bd63";
-            }else if (value <= 0.9){
-                return "#1a9850";
-            }else if (value <= 1.0){
-                return "#006837";
-            }
-        }
-        
-        function timestamp(str){
-            return new Date(str).getTime();   
-        }
-        
+        //create the map
+        var map = new google.maps.Map(d3.select("#map").node(), {
+          zoom: 9,
+          center: new google.maps.LatLng(37.76487, -122.41948),
+          mapTypeId: google.maps.MapTypeId.TERRAIN
+        });
+
+        //data structures for the different graphs
         var tempGraph = {
                     title: "Temperature",
                     data: [],
@@ -271,39 +252,7 @@
                     y_label: 'mg/l',
         };
         
-        var
-            weekdays = [
-                "Sunday", "Monday", "Tuesday",
-                "Wednesday", "Thursday", "Friday",
-                "Saturday"
-            ],
-            months = [
-                "January", "February", "March",
-                "April", "May", "June", "July",
-                "August", "September", "October",
-                "November", "December"
-            ];
 
-        // Append a suffix to dates.
-        // Example: 23 => 23rd, 1 => 1st.
-        function nth (d) {
-          if(d>3 && d<21) return 'th';
-          switch (d % 10) {
-                case 1:  return "st";
-                case 2:  return "nd";
-                case 3:  return "rd";
-                default: return "th";
-            }
-        }
-
-        // Create a string representation of the date.
-        function formatDate ( date ) {
-            //console.log(date);
-            return weekdays[date.getDay()] + ", " +
-                date.getDate() + nth(date.getDate()) + " " +
-                months[date.getMonth()] + " " +
-                date.getFullYear();
-        }
 
         var dateSlider = document.getElementById('slider-date');
         var pickerDate = document.getElementById('picker-date');
@@ -313,6 +262,8 @@
             document.getElementById('event-end')
         ];
         
+        
+        //update the location data used in the map
         updateLocationData = function (date){
             for(station in datasetLocation){
                 for(index in datasets[station].chlorpha){
@@ -327,38 +278,32 @@
             updateOverlay();
         }
 
+        //initialize the 2 handle time interval slider
         initDateSlider = function (){
             noUiSlider.create(dateSlider, {
-            // Create two timestamps to define a range.
                 range: {
                     min: 0,
                     max: dates.length-1
                 },
-
                 behaviour: 'drag',
                 connect: true,
-            // Steps of one week
                 step: 1,
-
-            // Two more timestamps indicate the handle starting positions.
                 start: [ 0, dates.length-1],
 
             });
             
+            //initialize the 1 handle time slider
             noUiSlider.create(pickerDate, {
-            // Create two timestamps to define a range.
                 range: {
                     min: 0,
                     max: dates.length-1
                 },
-
                 step: 1,
-
-            // Two more timestamps indicate the handle starting positions.
                 start: 0,
 
             });
             
+            //initialize the on update function 
             pickerDate.noUiSlider.on('update', function( values, handle ) {
                 document.getElementById("current-date").innerHTML = "Selected Date: " + formatDate(dates[+values[handle]]);
                 
@@ -376,9 +321,11 @@
                 MG.data_graphic(chlorGraph);
             });
             
+            //initialize the on update function 
             dateSlider.noUiSlider.on('update', function( values, handle ) {
                 dateValues[handle].innerHTML = formatDate(dates[+values[handle]]);
 
+                //left handle is moved (start time changes)
                 if(handle == 0){
                     tempGraph.min_x = dates[+values[handle]];
                     oxyGraph.min_x = dates[+values[handle]];
@@ -386,6 +333,7 @@
                     chlorGraph.min_x = dates[+values[handle]];
                 } 
 
+                //right handle is moved (end time changes)
                 if(handle==1){
                     tempGraph.max_x = dates[+values[handle]];
                     oxyGraph.max_x = dates[+values[handle]];
@@ -393,26 +341,28 @@
                     chlorGraph.max_x = dates[+values[handle]];
                 }
 
+                //update data 
                 MG.data_graphic(tempGraph);
                 MG.data_graphic(oxyGraph);
                 MG.data_graphic(chlorphaGraph);
                 MG.data_graphic(chlorGraph);
 
+                //update second slider
                 updateDatePicker(dateSlider.noUiSlider.get());
             });
         }
         
+        //update the range of the single handle time slider after an update of the 
         updateDatePicker = function(values){
             pickerDate.noUiSlider.updateOptions({
                 range: {
                     'min': Math.floor(values[0]),
                     'max': Math.floor(values[1])
                 }
-
             });
         }
         
-        
+        //function which is called when a user clicks on a station in the map.
         function changeStation(t){
             document.getElementById("information").innerHTML = "Station " + t + ": " + datasetLocation[t].name;
             
@@ -426,20 +376,7 @@
             MG.data_graphic(chlorGraph);
         }
         
-        var map = new google.maps.Map(d3.select("#map").node(), {
-          zoom: 9,
-          center: new google.maps.LatLng(37.76487, -122.41948),
-          mapTypeId: google.maps.MapTypeId.TERRAIN
-        });
-        
-        function notZero(n) {
-          n = +n;  // Coerce to number.
-          if (!n) {  // Matches +0, -0, NaN
-            return 1;
-          }
-          return n;
-        }
-        
+        //initialize the tooltip for the map
         var tip = d3.tip()
           .attr('class', 'd3-tip')
           .offset([-10, 0])
@@ -456,6 +393,7 @@
                 .style("top", (d.y - padding) + "px");
             }
         
+        //update function for the overlay
         function updateOverlay(){
             var padding = 10;
 
@@ -474,11 +412,10 @@
           marker.call(tip);
         }
         
+        //draw the overlay
         function drawOverlay(){
             
-            var padding = 10;
-            
-
+          var padding = 10;
             
           marker = layer.selectAll("svg")
               .data(d3.entries(datasetLocation))
@@ -494,15 +431,13 @@
               .attr("cy", padding)
               .style("fill", function(d) {return getChlorColor(d.value.size);})
               .on("click", function(d) {return changeStation(d.key);})
-
-            
-
-            
-            //updateLocationData(new Date("1993"));
         };
-         var dates = [];
         
-        var format = d3.time.format("%Y-%m-%d %H:%M:%S");
+        
+
+        
+        
+        //load the location data
         d3.tsv("location.tsv", function(locData){
             var locationData = {};
 
@@ -513,6 +448,7 @@
             
             //console.log(locationData);
                             
+            //load the json with the data
             d3.json("data.json", function(error, stationData) {
                 dataByStation = stationData[0];
                 dates = stationData[1].dates;
@@ -535,31 +471,27 @@
                 datasetLocation = locationData;
                 
                 
-
-
                 //create the overlay
                 var overlay = new google.maps.OverlayView();
                 overlay.onAdd = function() {
                     layer = d3.select(this.getPanes().overlayMouseTarget).append("div")
                         .attr("class", "stations");
-                    // Draw each marker as a separate SVG element.
-                    // We could use a single SVG, but what size would it have?
+
+                    //on draw function
                     overlay.draw = function() {
                       projection = this.getProjection();
                         
                       drawOverlay();
+                      //populate overlay with initial data
                       updateLocationData(new Date("1993"));
                     };
                 };
 
                 overlay.setMap(map);
                 
-                //populate visualization with initial data
+                //populate visualization with initial data of station 30
                 initDateSlider(dates);
                 changeStation("30");
-                
-                
-                
             });
         });
     </script>
