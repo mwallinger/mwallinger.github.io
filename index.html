@@ -1,0 +1,407 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <title>InfoViz SS 2016</title>
+  <meta name="description" content="Information Visualization Course SS 2016">
+  <meta name="author" content="Markus Wallinger">
+
+  <link rel="stylesheet" href="metricsgraphics.css">
+  <link rel="stylesheet" href="css/iThing-min.css">
+  <script src="lib/jquery-3.0.0.min.js"></script>
+  <script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+  <script src="scripts.js"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?sensor=false"></script> 
+  <script src="lib/metricsGraphics/metricsgraphics.js"></script>
+  <script src="lib/noUiSlider/wNumb.js"></script>
+  <link href="lib/noUiSlider/nouislider.min.css" rel="stylesheet">
+
+
+
+</head>
+<style>
+    html, body, #map {
+      width: 100%;
+      height: 400px;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .stations, .stations svg {
+      position: absolute;
+    }
+    .stations svg {
+      width: 60px;
+      height: 20px;
+      padding-right: 100px;
+      font: 10px sans-serif;
+    }
+    .stations circle {
+      fill: brown;
+      stroke: black;
+      stroke-width: 1.5px;
+    }
+    
+    #slider-date {
+        height: 20px;
+        width: auto;
+        display: block;
+    }
+    
+    .sliderDiv {
+        height: 50px;
+        width: 100%;
+        padding: 10px
+    }
+</style>
+
+<body>
+    <script src="lib/noUiSlider/nouislider.min.js"></script>
+    
+
+    <div id="map"></div>
+    
+    <div class="sliderDiv">
+        <div id="slider-date"></div>
+        <div id="event-start"></div>
+        <div id="event-end"></div>
+    </div>
+    <div class="sliderDiv">
+        <div id="picker-date"></div>
+        <div id="current-date"></div>
+    </div>
+    
+    <div id="chart1">
+        <svg></svg>
+    </div>
+    
+    <div id="chart2">
+        <svg></svg>
+    </div>
+    
+    <div id="chart3">
+        <svg></svg>
+    </div>
+    
+    <script>
+        var datasets;
+        var datasetLocation;
+        var dates;
+        var marker;
+        
+        function timestamp(str){
+            return new Date(str).getTime();   
+        }
+        
+        var tempGraph = {
+                    title: "Temperature",
+                    description: "Water temperature of the San Francisco Bay Area",
+                    data: [],
+                    width: 650,
+                    height: 300,
+                    target: '#chart1',
+                    x_accessor: 'date',
+                    y_accessor: 'val',
+                    min_x: new Date('1993-01-01'),
+                    max_x: new Date('2015-01-01'),
+                    linked: true
+                };
+
+       var oxyGraph = {
+                    title: "Oxygen",
+                    description: "Oxygen level of the San Francisco Bay Area",
+                    data: [],
+                    width: 600,
+                    height: 300,
+                    target: '#chart2',
+                    min_x: new Date('1993-01-01'),
+                    max_x: new Date('2015-01-01'),
+                    x_accessor: 'date',
+                    y_accessor: 'val',
+                    linked: true
+                };
+        
+       var chlorphaGraph = {
+                    title: "Chlorophyl A.PHA",
+                    description: "Ratio of chlorophyll a to the sum of chlorophyll a + phaeopigments. Phaeopigments are a degradation product of chlorophyll. It is a ratio between 1.0 and 0.0. Near 1 means the phytoplankton population is growing quickly. Low ratio means that blooms terminate.",
+                    data: [],
+                    width: 600,
+                    height: 300,
+                    target: '#chart3',
+                    min_x: new Date('1993-01-01'),
+                    max_x: new Date('2015-01-01'),
+                    x_accessor: 'date',
+                    y_accessor: 'val',
+                    linked: true
+        };
+        
+        var
+            weekdays = [
+                "Sunday", "Monday", "Tuesday",
+                "Wednesday", "Thursday", "Friday",
+                "Saturday"
+            ],
+            months = [
+                "January", "February", "March",
+                "April", "May", "June", "July",
+                "August", "September", "October",
+                "November", "December"
+            ];
+
+        // Append a suffix to dates.
+        // Example: 23 => 23rd, 1 => 1st.
+        function nth (d) {
+          if(d>3 && d<21) return 'th';
+          switch (d % 10) {
+                case 1:  return "st";
+                case 2:  return "nd";
+                case 3:  return "rd";
+                default: return "th";
+            }
+        }
+
+        // Create a string representation of the date.
+        function formatDate ( date ) {
+            //console.log(date);
+            return weekdays[date.getDay()] + ", " +
+                date.getDate() + nth(date.getDate()) + " " +
+                months[date.getMonth()] + " " +
+                date.getFullYear();
+        }
+
+        var dateSlider = document.getElementById('slider-date');
+        var pickerDate = document.getElementById('picker-date');
+        
+        var dateValues = [
+            document.getElementById('event-start'),
+            document.getElementById('event-end')
+        ];
+        
+        updateLocationData = function (date){
+            for(station in datasetLocation){
+                for(index in datasets[station].chlorpha){
+                    //console.log(station, index);
+                    if(date.getTime() <= datasets[station].chlorpha[index].date.getTime()){
+                        console.log(station)
+                        datasetLocation[station].size = datasets[station].chlorpha[index].val;
+                        break;
+                    }
+                }
+            }
+            updateOverlay();
+        }
+
+        initDateSlider = function (){
+            noUiSlider.create(dateSlider, {
+            // Create two timestamps to define a range.
+                range: {
+                    min: 0,
+                    max: dates.length-1
+                },
+
+                behaviour: 'drag',
+                connect: true,
+            // Steps of one week
+                step: 1,
+
+            // Two more timestamps indicate the handle starting positions.
+                start: [ 0, dates.length-1],
+
+            });
+            
+            noUiSlider.create(pickerDate, {
+            // Create two timestamps to define a range.
+                range: {
+                    min: 0,
+                    max: dates.length-1
+                },
+
+                step: 1,
+
+            // Two more timestamps indicate the handle starting positions.
+                start: 0,
+
+            });
+            
+            pickerDate.noUiSlider.on('update', function( values, handle ) {
+                document.getElementById("current-date").innerHTML = formatDate(dates[+values[handle]]);
+                
+                if (typeof marker !== 'undefined') {
+                    updateLocationData(dates[+values[handle]]);
+                }
+                
+            });
+            
+            dateSlider.noUiSlider.on('update', function( values, handle ) {
+                dateValues[handle].innerHTML = formatDate(dates[+values[handle]]);
+
+                if(handle == 0){
+                    tempGraph.min_x = dates[+values[handle]];
+                    oxyGraph.min_x = dates[+values[handle]];
+                    chlorphaGraph.min_x = dates[+values[handle]];
+                } 
+
+                if(handle==1){
+                    tempGraph.max_x = dates[+values[handle]];
+                    oxyGraph.max_x = dates[+values[handle]];
+                    chlorphaGraph.max_x = dates[+values[handle]];
+                }
+
+                MG.data_graphic(tempGraph);
+                MG.data_graphic(oxyGraph);
+                MG.data_graphic(chlorphaGraph);
+
+                updateDatePicker(dateSlider.noUiSlider.get());
+            });
+        }
+        
+        updateDatePicker = function(values){
+            pickerDate.noUiSlider.updateOptions({
+                range: {
+                    'min': Math.floor(values[0]),
+                    'max': Math.floor(values[1])
+                }
+
+            });
+        }
+        
+        
+        function changeStation(t){
+            oxyGraph.data = datasets[t].oxygen;
+            tempGraph.data = datasets[t].temperature;
+            chlorphaGraph.data = datasets[t].chlorpha;
+            MG.data_graphic(oxyGraph);
+            MG.data_graphic(tempGraph);
+            MG.data_graphic(chlorphaGraph);
+        }
+        
+        var map = new google.maps.Map(d3.select("#map").node(), {
+          zoom: 9,
+          center: new google.maps.LatLng(37.76487, -122.41948),
+          mapTypeId: google.maps.MapTypeId.TERRAIN
+        });
+        
+        function notZero(n) {
+          n = +n;  // Coerce to number.
+          if (!n) {  // Matches +0, -0, NaN
+            return 1;
+          }
+          return n;
+        }
+        
+
+        
+        function updateOverlay(){
+            var padding = 10;
+            
+          marker.selectAll("circle").attr("r", function(d) {return 2 + 10 * d.value.size;})
+              .attr("cx", padding)
+              .attr("cy", padding)
+              .on("click", function(d) {return changeStation(d.key);});
+        }
+        
+        function drawOverlay(layer, projection){
+            var padding = 10;
+            
+          marker = layer.selectAll("svg")
+              .data(d3.entries(datasetLocation))
+              .each(transform) // update existing markers
+              .enter().append("svg")
+              .each(transform)
+              .attr("class", "marker");
+
+          // Add a circle.
+          marker.append("circle")
+              .attr("r", function(d) {return d.value.size;})
+              .attr("cx", padding)
+              .attr("cy", padding)
+              .on("click", function(d) {return changeStation(d.key);});
+
+          // Add a label.
+          marker.append("text")
+              .attr("x", padding + 7)
+              .attr("y", padding)
+              .attr("dy", ".31em")
+              .text(function(d) { return "S. " + d.key; });
+
+          function transform(d) {
+            d = new google.maps.LatLng(d.value.coord[1], d.value.coord[0]);
+            d = projection.fromLatLngToDivPixel(d);
+            return d3.select(this)
+                .style("left", (d.x - padding) + "px")
+                .style("top", (d.y - padding) + "px");
+            }
+        };
+         var dates = [];
+        
+        var format = d3.time.format("%Y-%m-%d %H:%M:%S");
+        d3.tsv("location.tsv", function(locData){
+            var locationData = {};
+
+            
+            locData.forEach(function(d){
+               locationData[d["Station.Number"]] = {name:d["General.Location"], coord:[-d["West.Longitude"]/1000,+d["North.Latitude"]/1000], size: +d["Size"]};
+            });
+            
+            //console.log(locationData);
+                            
+            d3.json("data.json", function(error, stationData) {
+                dataByStation = stationData[0];
+                dates = stationData[1].dates;
+                    
+                for(station in dataByStation){
+                    for(series in dataByStation[station]){
+                        for(pair in dataByStation[station][series]){
+                            dataByStation[station][series][pair].date = new Date(dataByStation[station][series][pair].date);
+                        }
+                    }
+                }
+                
+                for(index in dates){
+                    dates[index] = new Date(dates[index]);
+                }
+
+                var overlay = new google.maps.OverlayView();
+
+                //console.log("dataset:", dataset);
+
+                //console.log("dataset:", dataByStation);
+
+
+                datasets = dataByStation;
+                datasetLocation = locationData;
+                
+                initDateSlider(dates);
+            
+                overlay.onAdd = function() {
+                    var layer = d3.select(this.getPanes().overlayMouseTarget).append("div")
+                        .attr("class", "stations");
+                    // Draw each marker as a separate SVG element.
+                    // We could use a single SVG, but what size would it have?
+                    overlay.draw = function() {
+                      var projection = this.getProjection(),
+                          padding = 10;
+                        
+                      drawOverlay(layer, projection);
+                    };
+                };
+
+                overlay.setMap(map);
+                
+                oxyGraph.data = dataByStation["33"].oxygen;
+                tempGraph.data = dataByStation["33"].temperature;
+                chlorphaGraph.data = dataByStation["33"].chlorpha
+ 
+
+                MG.data_graphic(tempGraph);
+                MG.data_graphic(oxyGraph);
+                MG.data_graphic(chlorphaGraph);
+            });
+        });
+
+        
+    </script>
+</body>
+</html>
