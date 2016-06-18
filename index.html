@@ -51,7 +51,7 @@
     
     .sliderDiv {
         height: 50px;
-        width: 100%;
+        width: 98%;
         padding: 10px
     }
     
@@ -84,53 +84,80 @@
       left: 0;
     }
     
+    #information{
+        text-align: center;
+    }
+    
     .container{width:100%;}
     .left{float:left;width:50%;}
     .right{float:right;width:50%;}
+    
+    .legend {
+        position: absolute;
+        top: 50px;
+        left: 10px;
+        z-index: 10;
+    }
+    
 </style>
 
 <body>
     <script src="lib/noUiSlider/nouislider.min.js"></script>
+    <div>
+        <div><img class='legend' src='legend.png' style="width: 200px;"></div>
+        <div id="map">
 
-    <div id="map"></div>
+        </div>
+    </div>
     
     <div class="sliderDiv">
         <div id="slider-date"></div>
-        <div id="event-start"></div>
-        <div id="event-end"></div>
+        <div>
+            Begin Timeline: <span id="event-start"></span>
+        </div>
+        <div>
+            End Timeline: <span id="event-end"></span>
+        </div>
     </div>
+
     <div class="sliderDiv">
         <div id="picker-date"></div>
         <div id="current-date"></div>
     </div>
     
-    <div class="container">
-        <div id="chart1" class="left">
-            <svg></svg>
+    <div>
+        <h1 id="information">
+            Station 36: NAME 
+        </h1>
+        
+        <div class="container">
+            <div id="chart1" class="left">
+                <svg></svg>
+            </div>
+
+            <div id="chart2" class="right">
+                <svg></svg>
+            </div>
         </div>
 
-        <div id="chart2" class="right">
-            <svg></svg>
-        </div>
-    </div>
-    
-    <div class="container">
-        <div id="chart3" class="left">
-            <svg></svg>
+        <div class="container">
+            <div id="chart3" class="left">
+                <svg></svg>
+            </div>
+
+            <div id="chart4" class="right">
+                <svg></svg>
+            </div>
         </div>
 
-        <div id="chart4" class="right">
-            <svg></svg>
-        </div>
-    </div>
-    
-    <div class="container">
-        <div id="chart5" class="left">
-            <svg></svg>
-        </div>
+        <div class="container">
+            <div id="chart5" class="left">
+                <svg></svg>
+            </div>
 
-        <div id="chart6" class="right">
-            <svg></svg>
+            <div id="chart6" class="right">
+                <svg></svg>
+            </div>
         </div>
     </div>
     
@@ -174,38 +201,51 @@
         
         var tempGraph = {
                     title: "Temperature",
-                    description: "Water temperature of the San Francisco Bay Area",
                     data: [],
                     width: 500,
                     height: 300,
+                    right: 20,
+                    left: 90,
+                    area: false,
                     target: '#chart3',
                     x_accessor: 'date',
                     y_accessor: 'val',
                     min_x: new Date('1993-01-01'),
                     max_x: new Date('2015-01-01'),
-                    linked: true
+                    linked: true,
+                    interpolate_tension: 1.0,
+                    x_label: 'Time',
+                    y_label: '°C',
                 };
 
        var oxyGraph = {
                     title: "Oxygen",
-                    description: "Oxygen measures of the water in the San Francisco Bay Area",
                     data: [],
                     width: 500,
                     height: 300,
+                    right: 20,
+                    left: 90,
+                    area: false,
                     target: '#chart2',
                     min_x: new Date('1993-01-01'),
                     max_x: new Date('2015-01-01'),
                     x_accessor: 'date',
                     y_accessor: 'val',
-                    linked: true
+                    min_y: 1,
+                    linked: true,
+                    interpolate_tension: 1.0,
+                    x_label: 'Time',
+                    y_label: 'mg/l',
                 };
         
        var chlorphaGraph = {
                     title: "Chlorophyl A.PHA",
-                    description: "Ratio of chlorophyll a to the sum of chlorophyll a + phaeopigments. Phaeopigments are a degradation product of chlorophyll. It is a ratio between 1.0 and 0.0. Near 1 means the phytoplankton population is growing quickly. Low ratio means that blooms terminate.",
                     data: [],
                     width: 500,
                     height: 300,
+                    right: 20,
+                    left: 90,
+                    area: false,
                     target: '#chart1',
                     min_x: new Date('1993-01-01'),
                     max_x: new Date('2015-01-01'),
@@ -213,15 +253,20 @@
                     missing_is_hidden: true,
                     x_accessor: 'date',
                     y_accessor: 'val',
-                    linked: true
+                    linked: true,
+                    interpolate_tension: 1.0,
+                    x_label: 'TIME',
+                    y_label: 'A.PHA.',
         };
         
        var chlorGraph = {
                     title: "Chlorophyl",
-                    description: "Chlorophyl measure of the water in the San Francisco bay area",
                     data: [],
                     width: 500,
                     height: 300,
+                    right: 20,
+                    left: 90,
+                    area: false,
                     target: '#chart4',
                     min_x: new Date('1993-01-01'),
                     max_x: new Date('2015-01-01'),
@@ -229,7 +274,10 @@
                     missing_is_hidden: true,
                     x_accessor: 'date',
                     y_accessor: 'val',
-                    linked: true
+                    linked: true,
+                    interpolate_tension: 1.0,
+                    x_label: 'Time',
+                    y_label: 'mg/l',
         };
         
         var
@@ -321,12 +369,20 @@
             });
             
             pickerDate.noUiSlider.on('update', function( values, handle ) {
-                document.getElementById("current-date").innerHTML = formatDate(dates[+values[handle]]);
+                document.getElementById("current-date").innerHTML = "Selected Date: " + formatDate(dates[+values[handle]]);
                 
                 if (typeof marker !== 'undefined') {
                     updateLocationData(dates[+values[handle]]);
                 }
                 
+                oxyGraph.markers = [{'date': dates[+values[handle]], 'label': 'Selected Date'}];
+                chlorphaGraph.markers = [{'date': dates[+values[handle]], 'label': 'Selected Date'}];
+                tempGraph.markers = [{'date': dates[+values[handle]], 'label': 'Selected Date'}];
+                chlorGraph.markers = [{'date': dates[+values[handle]], 'label': 'Selected Date'}];
+                MG.data_graphic(oxyGraph);
+                MG.data_graphic(chlorphaGraph);
+                MG.data_graphic(tempGraph);
+                MG.data_graphic(chlorGraph);
             });
             
             dateSlider.noUiSlider.on('update', function( values, handle ) {
@@ -367,6 +423,8 @@
         
         
         function changeStation(t){
+            document.getElementById("information").innerHTML = "Station " + t + ": " + datasetLocation[t].name;
+            
             oxyGraph.data = datasets[t].oxygen;
             tempGraph.data = datasets[t].temperature;
             chlorphaGraph.data = datasets[t].chlorpha;
@@ -391,16 +449,29 @@
           return n;
         }
         
-
+        var tip = d3.tip()
+          .attr('class', 'd3-tip')
+          .offset([-10, 0])
+          .html(function(d) {
+            return "<strong>Station " + d.key + ":</strong> <span>" + d.value.name + "</span>";
+          });
+        
+          function transform(d) {
+            padding = 10;
+            d = new google.maps.LatLng(d.value.coord[1], d.value.coord[0]);
+            d = projection.fromLatLngToDivPixel(d);
+            return d3.select(this)
+                .style("left", (d.x - padding) + "px")
+                .style("top", (d.y - padding) + "px");
+            }
         
         function updateOverlay(){
             var padding = 10;
-            var tip = d3.tip()
-              .attr('class', 'd3-tip')
-              .offset([-10, 0])
-              .html(function(d) {
-                return "<strong>Station " + d.key + ":</strong> <span>" + d.value.name + "</span>";
-              });
+
+            marker = layer.selectAll("svg")
+              .data(d3.entries(datasetLocation))
+              .each(transform) // update existing markers
+              .attr("class", "marker");
             
           marker.selectAll("circle").attr("r", function(d) {return 5 + 5 * d.value.size;})
               .attr("cx", padding)
@@ -408,12 +479,11 @@
               .style("fill", function(d) {return getChlorColor(d.value.size);})
               .on('mouseover', tip.show)
               .on('mouseout', tip.hide);
+            
           marker.call(tip);
         }
         
-        function drawOverlay(l, p){
-            projection = p;
-            layer = l;
+        function drawOverlay(){
             
             var padding = 10;
             
@@ -435,13 +505,9 @@
               .on("click", function(d) {return changeStation(d.key);})
 
             
-          function transform(d) {
-            d = new google.maps.LatLng(d.value.coord[1], d.value.coord[0]);
-            d = projection.fromLatLngToDivPixel(d);
-            return d3.select(this)
-                .style("left", (d.x - padding) + "px")
-                .style("top", (d.y - padding) + "px");
-            }
+
+            
+            //updateLocationData(new Date("1993"));
         };
          var dates = [];
         
@@ -468,51 +534,43 @@
                     }
                 }
                 
+                //create date objects
                 for(index in dates){
                     dates[index] = new Date(dates[index]);
                 }
-
-                var overlay = new google.maps.OverlayView();
-
-                //console.log("dataset:", dataset);
-
-                //console.log("dataset:", dataByStation);
-
-
+                
+                //store the datasets as global variables
                 datasets = dataByStation;
                 datasetLocation = locationData;
                 
-                initDateSlider(dates);
-            
+                
+
+
+                //create the overlay
+                var overlay = new google.maps.OverlayView();
                 overlay.onAdd = function() {
-                    var layer = d3.select(this.getPanes().overlayMouseTarget).append("div")
+                    layer = d3.select(this.getPanes().overlayMouseTarget).append("div")
                         .attr("class", "stations");
                     // Draw each marker as a separate SVG element.
                     // We could use a single SVG, but what size would it have?
                     overlay.draw = function() {
-                      var projection = this.getProjection(),
-                          padding = 10;
+                      projection = this.getProjection();
                         
-                      drawOverlay(layer, projection);
+                      drawOverlay();
+                      updateLocationData(new Date("1993"));
                     };
                 };
 
                 overlay.setMap(map);
                 
-                oxyGraph.data = dataByStation["33"].oxygen;
-                tempGraph.data = dataByStation["33"].temperature;
-                chlorphaGraph.data = dataByStation["33"].chlorpha;
-                chlorGraph.data = dataByStation["33"].chlor;
- 
-
-                MG.data_graphic(tempGraph);
-                MG.data_graphic(oxyGraph);
-                MG.data_graphic(chlorphaGraph);
-                MG.data_graphic(chlorGraph);
+                //populate visualization with initial data
+                initDateSlider(dates);
+                changeStation("30");
+                
+                
+                
             });
         });
-
-        
     </script>
 </body>
 </html>
