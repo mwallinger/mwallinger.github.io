@@ -8,16 +8,15 @@
   <meta name="description" content="Information Visualization Course SS 2016">
   <meta name="author" content="Markus Wallinger">
 
-  <link rel="stylesheet" href="metricsgraphics.css">
+  <link rel="stylesheet" href="css/metricsgraphics.css">
   <link rel="stylesheet" href="css/iThing-min.css">
   <script src="lib/jquery-3.0.0.min.js"></script>
   <script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
-  <script src="scripts.js"></script>
   <script src="https://maps.googleapis.com/maps/api/js?sensor=false"></script> 
   <script src="lib/metricsGraphics/metricsgraphics.js"></script>
   <script src="lib/noUiSlider/wNumb.js"></script>
+  <script src="lib/d3-tip.js"></script>
   <link href="lib/noUiSlider/nouislider.min.css" rel="stylesheet">
-
 
 
 </head>
@@ -55,11 +54,39 @@
         width: 100%;
         padding: 10px
     }
+    
+    .d3-tip {
+      line-height: 1;
+      font-weight: bold;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      border-radius: 2px;
+    }
+
+    /* Creates a small triangle extender for the tooltip */
+    .d3-tip:after {
+      box-sizing: border-box;
+      display: inline;
+      font-size: 10px;
+      width: 100%;
+      line-height: 1;
+      color: rgba(0, 0, 0, 0.8);
+      content: "\25BC";
+      position: absolute;
+      text-align: center;
+    }
+
+    /* Style northward tooltips differently */
+    .d3-tip.n:after {
+      margin: -1px 0 0 0;
+      top: 100%;
+      left: 0;
+    }
 </style>
 
 <body>
     <script src="lib/noUiSlider/nouislider.min.js"></script>
-    
 
     <div id="map"></div>
     
@@ -90,6 +117,34 @@
         var datasetLocation;
         var dates;
         var marker;
+        var layer;
+        var projection;
+        
+        var getChlorColor = function(value){
+            if (value <= 0){
+                return "#B6B6B4"
+            } else if (value <= 0.1){
+                return "#a50026";
+            }else if (value <= 0.2){
+                return "#d73027";
+            }else if (value <= 0.3){
+                return "#f46d43";
+            }else if (value <= 0.4){
+                return "#fdae61"
+            }else if (value <= 0.5){
+                return "#fee08b";
+            }else if (value <= 0.6){
+                return "#d9ef8b";
+            }else if (value <= 0.7){
+                return "#a6d96a";
+            }else if (value <= 0.8){
+                return "#66bd63";
+            }else if (value <= 0.9){
+                return "#1a9850";
+            }else if (value <= 1.0){
+                return "#006837";
+            }
+        }
         
         function timestamp(str){
             return new Date(str).getTime();   
@@ -184,7 +239,7 @@
                 for(index in datasets[station].chlorpha){
                     //console.log(station, index);
                     if(date.getTime() <= datasets[station].chlorpha[index].date.getTime()){
-                        console.log(station)
+                        //console.log(station)
                         datasetLocation[station].size = datasets[station].chlorpha[index].val;
                         break;
                     }
@@ -295,15 +350,29 @@
         
         function updateOverlay(){
             var padding = 10;
+            var tip = d3.tip()
+              .attr('class', 'd3-tip')
+              .offset([-10, 0])
+              .html(function(d) {
+                return "<strong>Station " + d.key + ":</strong> <span>" + d.value.name + "</span>";
+              });
             
-          marker.selectAll("circle").attr("r", function(d) {return 2 + 10 * d.value.size;})
+          marker.selectAll("circle").attr("r", function(d) {return 5 + 5 * d.value.size;})
               .attr("cx", padding)
               .attr("cy", padding)
-              .on("click", function(d) {return changeStation(d.key);});
+              .style("fill", function(d) {return getChlorColor(d.value.size);})
+              .on('mouseover', tip.show)
+              .on('mouseout', tip.hide);
+          marker.call(tip);
         }
         
-        function drawOverlay(layer, projection){
+        function drawOverlay(l, p){
+            projection = p;
+            layer = l;
+            
             var padding = 10;
+            
+
             
           marker = layer.selectAll("svg")
               .data(d3.entries(datasetLocation))
@@ -314,18 +383,13 @@
 
           // Add a circle.
           marker.append("circle")
-              .attr("r", function(d) {return d.value.size;})
+              .attr("r", function(d) {return 5 + 5 * d.value.size;})
               .attr("cx", padding)
               .attr("cy", padding)
-              .on("click", function(d) {return changeStation(d.key);});
+              .style("fill", function(d) {return getChlorColor(d.value.size);})
+              .on("click", function(d) {return changeStation(d.key);})
 
-          // Add a label.
-          marker.append("text")
-              .attr("x", padding + 7)
-              .attr("y", padding)
-              .attr("dy", ".31em")
-              .text(function(d) { return "S. " + d.key; });
-
+            
           function transform(d) {
             d = new google.maps.LatLng(d.value.coord[1], d.value.coord[0]);
             d = projection.fromLatLngToDivPixel(d);
