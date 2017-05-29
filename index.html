@@ -1,499 +1,932 @@
-<!doctype html>
-
 <html lang="en">
-<head>
-  <meta charset="utf-8">
+    <head>
+        <meta charset="utf-8">
 
-  <title>InfoViz SS 2016</title>
-  <meta name="description" content="Information Visualization Course SS 2016">
-  <meta name="author" content="Markus Wallinger">
+        <title>Visualisierung 2 SS 2017</title>
+        <meta name="description" content="Visualisierung 2 SS 2017">
+        <meta name="author" content="Markus Wallinger">
 
-  <link rel="stylesheet" href="css/metricsgraphics.css">
-  <link rel="stylesheet" href="css/iThing-min.css">
-  <link href="lib/noUiSlider/nouislider.min.css" rel="stylesheet">
-  <script src="lib/jquery-3.0.0.min.js"></script>
-  <script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
-  <script src="https://maps.googleapis.com/maps/api/js?sensor=false"></script> 
-  <script src="lib/metricsGraphics/metricsgraphics.js"></script>
-  <script src="lib/noUiSlider/wNumb.js"></script>
-  <script src="lib/d3-tip.js"></script>
-  <script src="scripts.js"></script>
-  
-
-
-</head>
-<style>
-    html, body, #map {
-      width: 100%;
-      height: 400px;
-      margin: 0;
-      padding: 0;
-    }
-    
-    .stations, .stations svg {
-      position: absolute;
-    }
-    .stations svg {
-      width: 60px;
-      height: 20px;
-      padding-right: 100px;
-      font: 10px sans-serif;
-    }
-    .stations circle {
-      fill: brown;
-      stroke: black;
-      stroke-width: 1.5px;
-    }
-    
-    #slider-date {
-        height: 20px;
-        width: auto;
-        display: block;
-    }
-    
-    .sliderDiv {
-        height: 50px;
-        width: 98%;
-        padding: 10px
-    }
-    
-    .d3-tip {
-      line-height: 1;
-      font-weight: bold;
-      padding: 12px;
-      background: rgba(0, 0, 0, 0.8);
-      color: #fff;
-      border-radius: 2px;
-    }
-
-    /* Creates a small triangle extender for the tooltip */
-    .d3-tip:after {
-      box-sizing: border-box;
-      display: inline;
-      font-size: 10px;
-      width: 100%;
-      line-height: 1;
-      color: rgba(0, 0, 0, 0.8);
-      content: "\25BC";
-      position: absolute;
-      text-align: center;
-    }
-
-    /* Style northward tooltips differently */
-    .d3-tip.n:after {
-      margin: -1px 0 0 0;
-      top: 100%;
-      left: 0;
-    }
-    
-    #information{
-        text-align: center;
-    }
-    
-    .container{width:100%;}
-    .left{float:left;width:50%;}
-    .right{float:right;width:50%;}
-    
-    .legend {
-        position: absolute;
-        top: 50px;
-        left: 10px;
-        z-index: 10;
-    }
-    
-</style>
-
-<body>
-    <script src="lib/noUiSlider/nouislider.min.js"></script>
-    <div>
-        <div><img class='legend' src='legend.png' style="width: 200px;"></div>
-        <div id="map">
-
-        </div>
-    </div>
-    
-    <div class="sliderDiv">
-        <div id="slider-date"></div>
-        <div>
-            Begin Timeline: <span id="event-start"></span>
-        </div>
-        <div>
-            End Timeline: <span id="event-end"></span>
-        </div>
-    </div>
-
-    <div class="sliderDiv">
-        <div id="picker-date"></div>
-        <div id="current-date"></div>
-    </div>
-    
-    <div>
-        <h1 id="information">
-            Station 36: NAME 
-        </h1>
+        <script src="lib/d3.min.js"></script>
+        <script src="lib/d3-color.min.js"></script>
+        <script src="lib/lalolib/lalolib.js"></script>
+        <script src="lib/jquery-3.2.1.min.js"></script>
+        <script src="lib/disjointSet.js"></script>
+        <script src="datastructure.js"></script>
+        <script src="lib/d3-tip.js"></script>
+        <script src="lib/vkThread.min.js"></script>
         
-        <div class="container">
-            <div id="chart1" class="left">
-                <svg></svg>
-            </div>
+        <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+        <link rel="stylesheet" href="https://www.w3schools.com/lib/w3-theme-light-blue.css">
 
-            <div id="chart2" class="right">
-                <svg></svg>
-            </div>
-        </div>
 
-        <div class="container">
-            <div id="chart3" class="left">
-                <svg></svg>
-            </div>
 
-            <div id="chart4" class="right">
-                <svg></svg>
-            </div>
-        </div>
 
-        <div class="container">
-            <div id="chart5" class="left">
-                <svg></svg>
-            </div>
-
-            <div id="chart6" class="right">
-                <svg></svg>
-            </div>
-        </div>
-    </div>
+    </head>
     
-    <script>
-        var datasets;
-        var datasetLocation;
-        var dates;
-        var marker;
-        var layer;
-        var projection;
-        var dates = [];
-        
-        //create the map
-        var map = new google.maps.Map(d3.select("#map").node(), {
-          zoom: 9,
-          center: new google.maps.LatLng(37.76487, -122.41948),
-          mapTypeId: google.maps.MapTypeId.TERRAIN
-        });
-
-        //data structures for the different graphs
-        var tempGraph = {
-                    title: "Temperature",
-                    data: [],
-                    width: 500,
-                    height: 300,
-                    left: 90,
-                    target: '#chart3',
-                    x_accessor: 'date',
-                    y_accessor: 'val',
-                    min_x: new Date('1993-01-01'),
-                    max_x: new Date('2015-01-01'),
-                    linked: true,
-                    interpolate_tension: 1.0,
-                    x_label: 'Time',
-                    y_label: '°C',
-                };
-
-       var oxyGraph = {
-                    title: "Oxygen",
-                    data: [],
-                    width: 500,
-                    height: 300,
-                    left: 90,
-                    target: '#chart2',
-                    min_x: new Date('1993-01-01'),
-                    max_x: new Date('2015-01-01'),
-                    x_accessor: 'date',
-                    y_accessor: 'val',
-                    min_y: 1,
-                    linked: true,
-                    interpolate_tension: 1.0,
-                    x_label: 'Time',
-                    y_label: 'mg/l',
-                };
-        
-       var chlorphaGraph = {
-                    title: "Chlorophyl A.PHA",
-                    data: [],
-                    width: 500,
-                    height: 300,
-                    left: 90,
-                    target: '#chart1',
-                    min_x: new Date('1993-01-01'),
-                    max_x: new Date('2015-01-01'),
-                    min_y: 0.01,
-                    missing_is_hidden: true,
-                    x_accessor: 'date',
-                    y_accessor: 'val',
-                    linked: true,
-                    interpolate_tension: 1.0,
-                    x_label: 'A.PHA.',
-                    y_label: 'mg/l',
-        };
-        
-       var chlorGraph = {
-                    title: "Chlorophyl",
-                    data: [],
-                    width: 500,
-                    height: 300,
-                    target: '#chart4',
-                    min_x: new Date('1993-01-01'),
-                    max_x: new Date('2015-01-01'),
-                    min_y: 0.01,
-                    missing_is_hidden: true,
-                    x_accessor: 'date',
-                    y_accessor: 'val',
-                    linked: true,
-                    interpolate_tension: 1.0,
-                    x_label: 'Time',
-                    y_label: 'mg/l',
-        };
-        
+    <style>
 
 
-        var dateSlider = document.getElementById('slider-date');
-        var pickerDate = document.getElementById('picker-date');
+    .links {
+      stroke: #000;
+      stroke-opacity: 0.2;
+    }
+
+    .polygons {
+      fill: none;
+      stroke: #000;
+    }
+
+    .polygons :first-child {
+      fill: #f00;
+    }
+
+    .sites {
+      fill: #000;
+      stroke: #fff;
+    }
         
-        var dateValues = [
-            document.getElementById('event-start'),
-            document.getElementById('event-end')
-        ];
+		.popover {
+			pointer-events: none;
+		}
+
+    .sites :first-child {
+      fill: #fff;
+    }
+
+    .hide
+    {
+        display: none;
+    }
         
+    .tooltip
+    {
+        background-color: black;
+        color: white;
+        margin: 10px;
+    }
         
-        //update the location data used in the map
-        updateLocationData = function (date){
-            for(station in datasetLocation){
-                for(index in datasets[station].chlorpha){
-                    //console.log(station, index);
-                    if(date.getTime() <= datasets[station].chlorpha[index].date.getTime()){
-                        //console.log(station)
-                        datasetLocation[station].size = datasets[station].chlorpha[index].val;
-                        break;
-                    }
-                }
-            }
-            updateOverlay();
+    .listElement
+        {
+            
         }
 
-        //initialize the 2 handle time interval slider
-        initDateSlider = function (){
-            noUiSlider.create(dateSlider, {
-                range: {
-                    min: 0,
-                    max: dates.length-1
-                },
-                behaviour: 'drag',
-                connect: true,
-                step: 1,
-                start: [ 0, dates.length-1],
+    </style>
+    
 
-            });
-            
-            //initialize the 1 handle time slider
-            noUiSlider.create(pickerDate, {
-                range: {
-                    min: 0,
-                    max: dates.length-1
-                },
-                step: 1,
-                start: 0,
+    <body class="w3-container w3-theme-l5">
+        <div class="w3-container w3-theme-l5">
+            <div class="w3-half w3-container w3-theme-l4">
+                <svg id="projectionView"></svg>
+                <div class="w3-container">
+                    <input class="w3-input" type="range" max="1" min="0.000000000000001" value="0" step="0.01" onchange="updateSlider(this.value)">
+                </div>
+            </div>
 
-            });
-            
-            //initialize the on update function 
-            pickerDate.noUiSlider.on('update', function( values, handle ) {
-                document.getElementById("current-date").innerHTML = "Selected Date: " + formatDate(dates[+values[handle]]);
+            <div class="w3-half w3-container w3-theme-l5">
+                <div class="w3-container" id="cont1">
+                    <div class="w3-bar w3-border w3-margin-bottom w3-theme-d1">
+                        <button class="w3-bar-item w3-button w3-border-right" style="width:33.33%" onclick="openView('dimensionsView')">Dimensions View</button> 
+                        <button class="w3-bar-item w3-button w3-border-right" style="width:33.33%" onclick="openView('filterView')">Filter View</button> 
+                        <button id='observationButton' class="w3-bar-item w3-button" style="width:33.33%" onclick="showObservations()">Show Observations</button> 
+                    </div>
+
+                    <div id="dimensionsView" class="view w3-container w3-theme-l3 w3-border ">
+                        <div class="w3-container ">
+                            <div id="attrClick" class="w3-container w3-half w3-border-right">Attributes</div>
+                            <div id="valueClick" class="w3-container w3-quarter w3-border-right">Value Usage</div>
+                            <div id="relevanceClick" class="w3-container w3-quarter">Relevance</div>
+                        </div>
+                            <div id="dimViewList"></div>
+                    </div>
+
+                    <div id="filterView" class="view w3-container" style="display:none">
+                        <div class="w3-cell-row w3-full w3-theme-l3 w3-border w3-margin-bottom">
+                            <div class="w3-container w3-cell" style="width:25%">
+                                <strong>Select Attribute:</strong>
+                            </div>
+                            <div class="w3-container w3-cell" style="width:75%">
+                                <select class="w3-select" name="option" id="selectAttr" onChange="selectChange(this.options[this.selectedIndex].value)">
+                                  <option value="" disabled selected>Select attribute</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="filterViewList" class="w3-container w3-full"></div>
+
+                        <div class="w3-bar w3-margin-top">
+
+                                <button class="w3-bar-item w3-button w3-border w3-theme-d1" style="width:25%" onclick="redraw()">Apply</button> 
+                                <button class="w3-bar-item w3-button w3-border w3-theme-d1" style="width:25%" onclick="mergeValues()">Merge Selection</button> 
+                                <button class="w3-bar-item w3-button w3-border w3-theme-d1" style="width:25%" onclick="splitValues()">Split Selection</button>
+                                <div class="w3-bar-item w3-container w3-border w3-theme-d1" style="width:25%">
+                                    <label class="w3-checkbox">
+                                      <input type="checkbox" checked="false" id="filterAttr"> Filter attribute
+                                      <div class="w3-checkmark"></div> 
+                                   </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w3-bar" style="">
+                         <select id="dataSelect" class="w3-bar-item w3-select" style="width:80%" name="option">
+                            <option value="test2.csv" >Choose a dataset</option>
+                            <option value="test3.csv">test3.csv</option>
+                            <option value="carInsurance.csv">carInsurance.csv</option>
+                            <option value="carInsurance2.csv">carInsurance2.csv</option>
+                            <option value="carInsurance3.csv">carInsurance3.csv</option>
+                        </select> 
+                        <button class="w3-bar-item w3-button w3-theme-d1" style="width:20%" onclick="loadCSV()">Load Dataset</button> 
+                    </div>
+                </div>
                 
-                if (typeof marker !== 'undefined') {
-                    updateLocationData(dates[+values[handle]]);
-                }
+            </div>
+        </div>
+            
+        <script type="text/javascript">
+            mergeParent = "";
+            datastructure = {};
+            datastructureNew = {};
+            merge = [];
+        
+            //var width = 960, height = 960;
+            
+            relevanceScale = d3.scaleLinear()
+                     .domain([0,1])
+                     .range([-0.1, 0.1]);
+            
+            svg = d3.select("#projectionView")
+                .attr("width", '100%')
+                .attr("height", $("svg").width());
+
+            gVoronoi = svg.append("g")
+                .attr("width", '100%')
+                .attr("height", $("svg").width());
+            
+            gVoronoiCircle = svg.append("g");
+            
+            gRowProj = svg.append("g")
+                .attr("width", '100%')
+                .attr("height", $("svg").width());
+            
+            ul = d3.select("#dimViewList")
+                .attr("width", '100%')
+                .attr("height", '100%');
+            
+            showObservation = false;
+            d3.select("#cont1").style("min-height", $("svg").width());
+    
+            barChartX = svg.append("svg");
+            barChartY = svg.append("svg");
+            barChartError = svg.append("svg");
+            dropdown = d3.select("#selectAttr")
+            filterList = d3.select("#filterViewList")
+            
+            width = $("svg").width();
+            height = width;
                 
-                oxyGraph.markers = [{'date': dates[+values[handle]], 'label': 'Selected Date'}];
-                chlorphaGraph.markers = [{'date': dates[+values[handle]], 'label': 'Selected Date'}];
-                tempGraph.markers = [{'date': dates[+values[handle]], 'label': 'Selected Date'}];
-                chlorGraph.markers = [{'date': dates[+values[handle]], 'label': 'Selected Date'}];
-                MG.data_graphic(oxyGraph);
-                MG.data_graphic(chlorphaGraph);
-                MG.data_graphic(tempGraph);
-                MG.data_graphic(chlorGraph);
+            xScale = d3.scaleLinear()
+                     .domain([-2,2])
+                     .range([0, width]);
+                
+            yScale = d3.scaleLinear()
+                     .domain([-2,2])
+                     .range([0, height]);
+            
+
+            $("#attrClick").click(function(){
+                ul.selectAll(".dimAttr").sort(function(a,b){ return stringCompare(a.name,b.name);});
+                console.log(ul.selectAll(".dimAttr"));
             });
             
-            //initialize the on update function 
-            dateSlider.noUiSlider.on('update', function( values, handle ) {
-                dateValues[handle].innerHTML = formatDate(dates[+values[handle]]);
-
-                //left handle is moved (start time changes)
-                if(handle == 0){
-                    tempGraph.min_x = dates[+values[handle]];
-                    oxyGraph.min_x = dates[+values[handle]];
-                    chlorphaGraph.min_x = dates[+values[handle]];
-                    chlorGraph.min_x = dates[+values[handle]];
-                } 
-
-                //right handle is moved (end time changes)
-                if(handle==1){
-                    tempGraph.max_x = dates[+values[handle]];
-                    oxyGraph.max_x = dates[+values[handle]];
-                    chlorphaGraph.max_x = dates[+values[handle]];
-                    chlorGraph.max_x = dates[+values[handle]];
-                }
-
-                //update data 
-                MG.data_graphic(tempGraph);
-                MG.data_graphic(oxyGraph);
-                MG.data_graphic(chlorphaGraph);
-                MG.data_graphic(chlorGraph);
-
-                //update second slider
-                updateDatePicker(dateSlider.noUiSlider.get());
+            $("#valueClick").click(function(){
+                ul.selectAll(".dimVal").sort(function(a,b){ return a.sum < b.sum;});
             });
-        }
-        
-        //update the range of the single handle time slider after an update of the 
-        updateDatePicker = function(values){
-            pickerDate.noUiSlider.updateOptions({
-                range: {
-                    'min': Math.floor(values[0]),
-                    'max': Math.floor(values[1])
-                }
-            });
-        }
-        
-        //function which is called when a user clicks on a station in the map.
-        function changeStation(t){
-            document.getElementById("information").innerHTML = "Station " + t + ": " + datasetLocation[t].name;
             
-            oxyGraph.data = datasets[t].oxygen;
-            tempGraph.data = datasets[t].temperature;
-            chlorphaGraph.data = datasets[t].chlorpha;
-            chlorGraph.data = datasets[t].chlor;
-            MG.data_graphic(oxyGraph);
-            MG.data_graphic(tempGraph);
-            MG.data_graphic(chlorphaGraph);
-            MG.data_graphic(chlorGraph);
-        }
-        
-        //initialize the tooltip for the map
-        var tip = d3.tip()
-          .attr('class', 'd3-tip')
-          .offset([-10, 0])
-          .html(function(d) {
-            return "<strong>Station " + d.key + ":</strong> <span>" + d.value.name + "</span>";
-          });
-        
-          function transform(d) {
-            padding = 10;
-            d = new google.maps.LatLng(d.value.coord[1], d.value.coord[0]);
-            d = projection.fromLatLngToDivPixel(d);
-            return d3.select(this)
-                .style("left", (d.x - padding) + "px")
-                .style("top", (d.y - padding) + "px");
+            $("#relevanceClick").click(function(){
+                ul.selectAll(".dimAttr").sort(function(a,b){ return a.relevance < b.relevance;});
+            });
+            
+            function stringCompare(a, b) {
+                a = a.toLowerCase();
+                b = b.toLowerCase();
+                return a > b ? 1 : a == b ? 0 : -1;
             }
-        
-        //update function for the overlay
-        function updateOverlay(){
-            var padding = 10;
+            
+            function openView(viewName) {
+                var i;
+                var x = document.getElementsByClassName("view");
+                for (i = 0; i < x.length; i++) {
+                    x[i].style.display = "none";
+                }
+                document.getElementById(viewName).style.display = "block";
+            }
+            
+            function mergeValues(){
+                datastructure.merge(merge.sort(), mergeParent);
+                selectChange(mergeParent)
+            }
+            
+            function splitValues(){
+                datastructure.split(merge.sort(), mergeParent);
+                selectChange(mergeParent);
+            }
+            
+            function redraw(){
+                datastructure.setCopyHeaderActive();
+                
+                
+                console.log(datastructure.indicatorMatrix);
+                calculateProjection(datastructure.indicatorMatrix);
+                drawDimensionsView(datastructure.headerData);
+                drawFilterView(datastructure.headerCopy);
+            }
+            
+            function drawDimensionsView(data){
 
-            marker = layer.selectAll("svg")
-              .data(d3.entries(datasetLocation))
-              .each(transform) // update existing markers
-              .attr("class", "marker");
-            
-          marker.selectAll("circle").attr("r", function(d) {return 5 + 5 * d.value.size;})
-              .attr("cx", padding)
-              .attr("cy", padding)
-              .style("fill", function(d) {return getChlorColor(d.value.size);})
-              .on('mouseover', tip.show)
-              .on('mouseout', tip.hide);
-            
-          marker.call(tip);
-        }
-        
-        //draw the overlay
-        function drawOverlay(){
-            
-          var padding = 10;
-            
-          marker = layer.selectAll("svg")
-              .data(d3.entries(datasetLocation))
-              .each(transform) // update existing markers
-              .enter().append("svg")
-              .each(transform)
-              .attr("class", "marker");
-
-          // Add a circle.
-          marker.append("circle")
-              .attr("r", function(d) {return 5 + 5 * d.value.size;})
-              .attr("cx", padding)
-              .attr("cy", padding)
-              .style("fill", function(d) {return getChlorColor(d.value.size);})
-              .on("click", function(d) {return changeStation(d.key);})
-        };
-        
-        
-
-        
-        
-        //load the location data
-        d3.tsv("location.tsv", function(locData){
-            var locationData = {};
-
-            
-            locData.forEach(function(d){
-               locationData[d["Station.Number"]] = {name:d["General.Location"], coord:[-d["West.Longitude"]/1000,+d["North.Latitude"]/1000], size: +d["Size"]};
-            });
-            
-            //console.log(locationData);
-                            
-            //load the json with the data
-            d3.json("data.json", function(error, stationData) {
-                dataByStation = stationData[0];
-                dates = stationData[1].dates;
+                xBarScale = d3.scaleLinear()
+                     .domain([0,1])
+                     .range([0, 200]);
+                
+                var parent = ul;
+                
+                parent.selectAll("div").remove();
+                var gg = parent.selectAll("div")
+                    .data(data)
+                    .enter()
                     
-                for(station in dataByStation){
-                    for(series in dataByStation[station]){
-                        for(pair in dataByStation[station][series]){
-                            dataByStation[station][series][pair].date = new Date(dataByStation[station][series][pair].date);
-                        }
+                var list = gg.append("div").filter(function(d) {;return !d.filtered}).classed("w3-cell-row", true).classed("dimAttr", true).style("width","100%");
+                list.append("div")
+                    .filter(function(d) {;return !d.filtered})
+                    .style("width", "75%")
+                    .classed("w3-cell", true)
+                    .style("background-color", function(d){ return d.color;})
+                    .text(function (d, i) {
+                    return d.name;
+                })
+                    .on("click", expand)
+                    
+                list.append("div").classed("w3-cell", true).style("width", "25%").append("svg")
+                        .attr("height", 20)
+                        .append("rect")
+                        .attr("width", function(d, i) {return (d.relevance) * 100;})
+                        .attr("height", 20)
+                        .attr("fill", "steelblue");
+
+                function expand() {
+                    var g = d3.select(this)
+                        .on("click", collapse)
+                        .append("div")
+                        .style("background-color", 'white')
+                        .selectAll("div")
+                        .data(function (d, i) {
+                            return d.values;
+                    }) .enter()
+                       
+                    
+                    var listElement = g.append("div")
+                        .style("background-color", 'white')
+                        .classed("w3-cell-row", true)
+                        .classed("dimVal", true);
+                        
+                    listElement.append("div").classed("w3-cell", true).classed("w3-container", true).text(function (d, i) { return d.getName() + "# ";}).style("width", "75%");
+                    listElement.append("div").classed("w3-cell", true).classed("w3-container", true).style("width", "20%").append("svg")
+                        .attr("height", 20)
+                        .append("rect")
+                        .attr("width", function(d) {console.log(d); return (d.sum) * 100;})
+                        .attr("height", 20)
+                        .attr("fill", "steelblue");
+                }
+
+                function collapse() {
+                    d3.select(this)
+                        .on("click", expand)
+                        .select("div")
+                        .remove();
+                }
+                
+            }
+
+            function drawColumnProjection(delta = 0.000000000001){
+                var width = $("svg").width();
+                var height = width;
+
+                var dataset = datastructure.getFlatJSON(delta);
+                
+                
+                var datasetRollup = d3.nest()
+                  .key(function(d) { return d.id; })
+                  .rollup(function(v) { return {
+                    count: v.length,
+                    color: v.map(function(d) {return d.color}),
+                    xCoord: d3.mean(v, function(d) { return d.xCoord; }),
+                    yCoord: d3.mean(v, function(d) { return d.yCoord; }),
+                    relevance: d3.mean(v, function(d) { return d.relevance; }),
+                    name:  v.map(function(d) {return {attrName: d.attrName, name: d.getName()}; })
+                  }; })
+                  .entries(dataset);
+                
+                console.log(datasetRollup);
+                
+                var datasetRollupFiltered = datasetRollup.filter(function(d){return d.value.count > 1});
+                console.log(datasetRollupFiltered);
+                
+                xScale = d3.scaleLinear()
+                     .domain([-1,1])
+                     .range([0, width]);
+                
+                yScale = d3.scaleLinear()
+                     .domain([-1,1])
+                     .range([0, height]);
+
+                xScale.domain([1.1 * d3.min(datasetRollup, function(d) { return d.value.xCoord; }), 1.1 * d3.max(datasetRollup, function(d) { return d.value.xCoord; })]);            
+                yScale.domain([1.1 * d3.min(datasetRollup, function(d) { return d.value.yCoord; }), 1.1 * d3.max(datasetRollup, function(d) { return d.value.yCoord; })]);
+                relevanceScale.domain([1.1 * d3.min(datasetRollup, function(d) { return d.value.relevance; }), 1.1 * d3.max(datasetRollup, function(d) { return d.value.relevance; })]);
+                
+                console.log(d3.min(datasetRollup, function(d) { return d.value.yCoord; }));
+                console.log(d3.max(datasetRollup, function(d) { return d.value.yCoord; }));
+                console.log(d3.min(datasetRollup, function(d) { return d.value.xCoord; }));
+                console.log(d3.max(datasetRollup, function(d) { return d.value.xCoord; }));
+
+                
+                  // transition
+                  var t = d3.transition()
+                      .duration(750);
+
+                  // voronoi tesselation
+                  var voronoi = d3.voronoi()
+                    .extent([[-1, -1], [width + 1, height + 1]])
+                    .x(function(d) { return xScale(d.value.xCoord); })
+                    .y(function(d) { return yScale(d.value.yCoord); });
+               
+
+
+                  // JOIN
+                    var voronoiGroup = gVoronoi.selectAll(".voronoi")
+                    .data(voronoi(datasetRollup).polygons(), function(d){return d.key;})
+                    .attr('pointer-events', 'all')
+
+                  // EXIT
+                  voronoiGroup.exit()
+                      .style("fill", function(d,i) {if(d.data.value.count > 1) return d3.rgb(211,211,211); else return d.data.value.color;})
+                    .transition(t)
+                      .style("opacity", 1e-6)
+                      .remove();
+
+                  // UPDATE
+                  voronoiGroup
+                    .transition(t)
+                      .delay(250)
+                      .attr("d", function(d) { return d ? "M" + d.join("L") + "Z" : null; })
+                      .style("fill", function(d,i) {console.log(d.data.value); if(d.data.value.count > 1 || showObservation) return d3.rgb(211,211,211); else return d.data.value.color;});
+
+                  // ENTER
+                  voronoiGroup.enter().append("path")
+                  .on("mouseover", (d) => tip.show(d.data.value))
+                    .on("mouseout",  tip.hide)
+                      .attr("class", "voronoi")
+                      .attr("d", function(d) { return d ? "M" + d.join("L") + "Z" : null; })
+                      //.attr("class", function(d,i) { return "voronoi " + d.key; })
+                      .style("fill", function(d,i) {if(d.data.value.count > 1) return d3.rgb(211,211,211); else return (d.data.value.color)[0].darker(relevanceScale(d.data.value.relevance)*3);})
+                      .style("opacity", 1e-6)
+                      .transition(t)
+                      .delay(250)
+                      .style("opacity", 1)
+                
+                  /*
+                var points =  gVoronoi.selectAll("circle").data(datasetRollup, function(d) { return d; });
+                     
+                
+                points.enter().append("circle")
+                      .attr("cx", function(d) { return xScale(d.value.xCoord); })
+                      .attr("cy", function(d) { return yScale(d.value.yCoord); })
+                      .attr("r", function (d) { return 3; })
+                      .style("fill", function(d) { return "red"; })
+                      .style("opacity", 1)
+                      .merge(points);
+
+                points.exit().remove(); */
+                
+                gVoronoiCircle.selectAll("g").remove();
+                
+                var points2 = gVoronoiCircle.selectAll("g").data(datasetRollupFiltered, function(d) {return d});
+                points2.remove();
+                
+                if(delta * width / 10 < 5 )
+                    delta = 50 / width;
+                
+                var points2Circle = points2.enter()
+                                        .append("g")
+                                        .selectAll("circle")
+                                        .data(function(d) {return d.value.color})
+                                        .enter()
+                                        .append("circle")
+                                        .attr("cx", function(d) {return xScale((d3.select(this.parentNode).data()[0]).value.xCoord); })
+                                        .attr("cy", function(d) { return yScale((d3.select(this.parentNode).data()[0]).value.yCoord); })
+                                        .on("mouseover", function(d) { tip.show((d3.select(this.parentNode).data()[0]).value) })
+                                        .on("mouseout",  tip.hide)
+                                        .style("fill", function(d) { return d; })
+                                        .attr("r", function (d,i) {return delta * width / 10 - i * 0.1 * width * delta / (d3.select(this.parentNode).data()[0]).value.count; })
+                                        .transition(t).delay(250);
+                
+                //points2Circle.exit().remove(); 
+            
+                //calculate Area of polygons
+                
+                var voronoi2 = d3.voronoi()
+                    .extent([[-1, -1], [width - 1, height - 1]])
+                    .x(function(d) { return xScale(d.xCoord); })
+                    .y(function(d) { return yScale(d.yCoord); });
+                var polygons = voronoi2.polygons(dataset);
+                console.log(polygons);
+                
+                var area = {};
+                
+                polygons.forEach(function(polygon){
+                    var sum = 0;
+                    for(var i = 1; i <= polygon.length; i++){
+                           sum += polygon[i % polygon.length][0] * (polygon[(i-1) % polygon.length][1] + 10 - polygon[(i+1) % polygon.length][1]);
+                    } 
+                    area[polygon.data.index] = sum;
+                });
+                
+                console.log(area);
+                datastructure.setArea(area);
+                
+                }
+            
+            var tip = d3.tip()
+              .attr('class', 'd3-tip')
+              .offset([-1, 0])
+              .direction('e')
+              .html(function(d,i) {
+                    var string = "<div class='tooltip'>";
+                    
+                  var dRollup = d3.nest()
+                    .key(function(d) { return d.attrName; })
+                    .entries(d.name);
+
+                dRollup.forEach(function(elem){
+                    string = string + "<strong>" + elem.key + ":</strong> ";
+                    elem.values.forEach(function(value){
+                        string = string + value.name + ", ";
+                    });
+                    string = string + "<br>";
+                });
+                    //"              
+                return string + "</div>";
+              });
+            gVoronoi.call(tip);
+             
+            var tipPoint = d3.tip()
+              .attr('class', 'd3-tip')
+              .offset([-1, 0])
+              .direction('e')
+              .html(function(d,i) {
+                    if(!d)
+                        return "";
+                  
+                    var string = "<div class='tooltip'>";
+                    string =  string + d;   
+                return string + "</div>";
+              });
+            gRowProj.call(tipPoint);
+            
+            function updateSlider(value){
+                drawColumnProjection(value);
+            }
+
+            function drawRowProjection(attrName){
+                
+                var width = $("svg").width();
+                var height = width;
+     
+                         
+                gRowProj.style("opacity", showObservation ? 1.0 : 0.0);    
+                
+                var colorArray = datastructure.getColorByObservation(attrName);
+                
+                var points =  gRowProj.selectAll("circle").data(colorArray, function(d) { return d; });
+                points.enter().append("circle")
+                      .attr("cx", function(d) { return xScale(d.coord.x); })
+                      .attr("cy", function(d) { return yScale(d.coord.y); })
+                      .attr("r", function (d) { return 3; })
+                      .style("fill", function(d) { return d.color; })
+                      .style("opacity", 0.7)
+                      .on("mouseover", (d) => tipPoint.show(d.name))
+                      .on("mouseout",  tipPoint.hide)
+                      .attr('pointer-events', showObservation ? 'all' : 'none')
+                      .merge(points);
+               
+                points.exit().remove(); 
+                
+                
+            }
+            
+            function showObservations(){
+                showObservation = !showObservation;
+                console.log(showObservation);
+                var t = d3.transition().duration(750);
+                var opacity = showObservation ? 1 : 0;
+                
+                gRowProj.transition(t).delay(250).style("opacity", opacity);
+                                
+                var voronoiGroup = gVoronoi.selectAll(".voronoi");
+                voronoiGroup.transition(t).delay(250)
+                    .style("fill", function(d,i) {if(d.data.value.count > 1 || showObservation) return d3.rgb(211,211,211).darker(relevanceScale(d.data.value.relevance)); else return d.data.value.color;});
+                
+                if(showObservation){
+                    gVoronoi.selectAll(".voronoi").attr('pointer-events', 'none');
+                    gRowProj.selectAll("circle").attr('pointer-events', 'all');
+                }
+                else{
+                    gVoronoi.selectAll(".voronoi").attr('pointer-events', 'all');
+                    gRowProj.selectAll("circle").attr('pointer-events', 'none');
+                }
+
+            }
+            
+            function drawYBarChart(){
+                var widthSVG = $("svg").width();
+                width = widthSVG/5;
+                height = width/2;
+                
+                marginTop = width * 0.05;
+                marginBottom = width * 0.10;
+                marginLR = width * 0.05;
+                
+                widthChart = width - 2*marginLR;
+                heightChart = height - marginBottom - marginTop;
+                
+                var data = datastructure.headerData.filter(function(d) {return !d.filtered; })
+                
+                var x = d3.scaleBand().rangeRound([0, widthChart]).padding(0.1),
+                    y = d3.scaleLinear().rangeRound([heightChart-1, 0]);
+                
+                x.domain(data.map(function(d) { return d.name; }));
+                y.domain([0, d3.max(data, function(d){ return d.yWeight;})]);
+                    
+                barChartY.select(".bgRect").remove();
+                barChartY.select("text").remove();
+                
+                barChartY.append("rect").classed("bgRect", true).style("fill", 'white').attr("width", width).attr("height", height).attr("transform", "translate("+ (widthSVG*0.05) +","+(widthSVG*0.05)+")").style("opacity", 0.7);
+                barChartY.append("text")
+                    .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
+                    .attr("transform", "translate("+ (widthSVG*0.05 + marginLR + widthChart/2) +","+ (widthSVG*0.05 + heightChart + marginTop +marginBottom * 0.66) +")")  // centre below axis
+                    .style("font-size", "0.7vw")
+                    .text("Dims. important for Y");
+            
+                barChartY.selectAll(".bar").remove();
+                var bars = barChartY.selectAll(".bar").data(data).enter().append("rect");
+
+                    bars.attr("class", "bar")
+                    .attr("x", function(d,i) { return x(d.name); })
+                    .attr("y", function(d) { return y(d.yWeight); })
+                    .style("fill", function(d) { return d.color;})
+                    .attr("width", x.bandwidth())
+                    .attr("height", function(d) { return heightChart - y(d.yWeight); })
+                    .attr("oppacity", 0.7)
+                    .attr("transform", "translate("+ (widthSVG*0.05 + marginLR) +","+ (widthSVG*0.05 + marginTop) +")")
+                    .on('click', function(d,i){ drawRowProjection(d.name);});
+
+            }
+            
+            function drawXBarChart(){
+                var widthSVG = $("svg").width();
+                width = widthSVG/5;
+                height = width/2;
+                
+                marginTop = width * 0.05;
+                marginBottom = width * 0.10;
+                marginLR = width * 0.05;
+                
+                widthChart = width - 2*marginLR;
+                heightChart = height - marginBottom - marginTop;
+                
+                var data = datastructure.headerData.filter(function(d) {return !d.filtered; })
+                
+                var x = d3.scaleBand().rangeRound([0, widthChart]).padding(0.1),
+                    y = d3.scaleLinear().rangeRound([heightChart-1, 0]);
+                
+                x.domain(data.map(function(d) { return d.name; }));
+                y.domain([0, d3.max(data, function(d){ return d.xWeight;})]);
+                
+                barChartX.select(".bgRect").remove();
+                barChartX.select("text").remove();
+                
+                barChartX.append("rect").classed("bgRect", true).style("fill", 'white').attr("width", width).attr("height", height).attr("transform", "translate("+ (widthSVG*0.95 - width) +","+(widthSVG*0.95 - height)+")").style("opacity", 0.7);
+                barChartX.append("text")
+                    .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
+                    .attr("transform", "translate("+ (widthSVG*0.95 + marginLR + widthChart/2 - width) +","+ (widthSVG*0.95 + heightChart + marginTop +marginBottom * 0.66  - height) +")")  // centre below axis
+                    .style("font-size", "0.7vw")
+                    .text("Dims. important for X");
+                
+                barChartX.selectAll(".bar").remove();
+                
+                var bars = barChartX.selectAll(".bar").data(data).enter().append("rect");
+
+                    bars.attr("class", "bar")
+                    .attr("x", function(d,i) { return x(d.name); })
+                    .attr("y", function(d) { return y(d.xWeight); })
+                    .style("fill", function(d) { return d.color;})
+                    .attr("width", x.bandwidth())
+                    .attr("height", function(d) { return heightChart - y(d.xWeight); })
+                    .attr("oppacity", 0.9)
+                    .attr("z-index", 10)
+                    .attr("transform", "translate("+ (widthSVG*0.95 + marginLR - width) +","+ (widthSVG*0.95 + marginTop  - height) +")")
+                    .on('click', function(d,i){ drawRowProjection(d.name);});
+
+            }
+            
+            function drawErrorBarChart(){
+                var widthSVG = $("svg").width();
+                width = widthSVG/5;
+                height = width/2;
+                
+                marginTop = width * 0.05;
+                marginBottom = width * 0.10;
+                marginLR = width * 0.05;
+                
+                widthChart = width - 2*marginLR;
+                heightChart = height - marginBottom - marginTop;
+                
+                var data = datastructure.headerData.filter(function(d) {return !d.filtered; })
+                
+                var x = d3.scaleBand().rangeRound([0, widthChart]).padding(0.1),
+                    y = d3.scaleLinear().rangeRound([heightChart-1, 0]);
+                
+                x.domain(data.map(function(d) { return d.name; }));
+                y.domain([0, d3.max(data, function(d){ return d.errorWeight;})]);
+                
+                barChartError.select(".bgRect").remove();
+                barChartError.select("text").remove();
+                
+                barChartError.append("rect").classed("bgRect", true).style("fill", 'white').attr("width", width).attr("height", height).attr("transform", "translate("+ (widthSVG*0.95 - width) +","+(widthSVG*0.05)+")").style("opacity", 0.7);
+                barChartError.append("text")
+                    .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
+                    .attr("transform", "translate("+ (widthSVG*0.95 + marginLR + widthChart/2 - width) +","+ (widthSVG*0.05 + heightChart + marginTop +marginBottom * 0.66) +")")  // centre below axis
+                    .style("font-size", "0.7vw")
+                    .text("Projection Error");
+                
+                barChartError.selectAll(".bar").remove();
+                
+                var bars = barChartError.selectAll(".bar").data(data).enter().append("rect");
+
+                    bars.attr("class", "bar")
+                    .attr("x", function(d,i) { return x(d.name); })
+                    .attr("y", function(d) { return y(d.errorWeight); })
+                    .style("fill", function(d) { return d.color;})
+                    .attr("width", x.bandwidth())
+                    .attr("height", function(d) { return heightChart - y(d.errorWeight); })
+                    .attr("oppacity", 0.9)
+                    .attr("z-index", 10)
+                    .attr("transform", "translate("+ (widthSVG*0.95 + marginLR - width) +","+ (widthSVG*0.05 + marginTop) +")")
+                    .on('click', function(d,i){ drawRowProjection(d.name);});
+
+            }
+            
+            function setRelevance(relevance){
+
+                datastructure.headerData.forEach(function(entry){
+                    var relevTemp = 0.0;
+                    
+                    entry.values.forEach(function(child){
+                       child.relevance = relevance[child.getIndex()];
+                       relevTemp = relevTemp + relevance[child.getIndex()];
+                    }); 
+                    
+                    entry.relevance = relevTemp;
+                }); 
+                
+                drawDimensionsView(datastructure.headerData);
+            }
+            
+            function setColSum(colSum){
+                
+                datastructure.headerData.forEach(function(entry){
+                    entry.values.forEach(function(child){
+                       child.sum = colSum.val[child.getIndex()];
+                    }); 
+                });
+                
+                console.log(datastructure);
+            }
+            
+            function setXCoord(coords){
+                console.log(coords);
+                var data = [];
+                
+                for(var i = 0; i < coords.val.length; i += 2){
+                    data.push({x : coords.val[i], y : coords.val[i+1]});
+                }
+                
+                datastructure.setRowCoordinates(data);
+                drawRowProjection(null);
+            }
+            
+            function setYCoord(coords){
+                console.log(coords);
+                var data = [];
+                
+                for(var i = 0; i < coords.val.length; i += 2){
+                    data.push({x : coords.val[i], y : coords.val[i+1], color : datastructure.colors[(i/2)]});
+                }
+                
+                datastructure.setColumnCoordinate(data);
+                console.log(datastructure);
+                drawColumnProjection(0.0000001);
+            }
+        
+            function setXBarChart(result){
+                datastructure.headerData.forEach(function(entry){
+                    var sum = 0;
+                    entry.values.forEach(function(child){
+                        sum += result[child.getIndex()];
+                        child.xWeight = result[child.getIndex()];
+                    }); 
+                    
+                    entry.xWeight = sum;
+                });
+                
+                drawXBarChart();
+            }
+            
+            function setErrorBarChart(result){
+                datastructure.headerData.forEach(function(entry){
+                    var sum = 0;
+                    entry.values.forEach(function(child){
+                        sum += result[child.getIndex()];
+                    }); 
+                    
+                    entry.errorWeight = sum;
+                });
+                
+                drawErrorBarChart();
+            }
+            
+            function drawFilterView(data){
+                
+                dropdown.selectAll("option").remove();
+                
+                var list = dropdown.selectAll("select")
+                    .data(data)
+                    .enter()
+                    .append("option")
+                    .text(function(d){return d.name;});
+            }
+            
+            function selectChange(value){
+                merge = [];
+                mergeParent = value;
+                var data = [];
+                var checked = false;
+                
+                //console.log(datastructure.headerCopy);
+                
+                datastructure.headerCopy.forEach(function(entry){
+                    if(entry.name == value){
+                        data = entry.values;
+                        checked = entry.filtered;
+                    } 
+                });
+                
+                $('#filterAttr').prop('checked', checked);
+                $('#filterAttr').change(function () {
+                     datastructure.setFilteredAttribute(value, $("#filterAttr").is(":checked"));
+               });
+                
+                filterList.selectAll("div").remove();
+                console.log(data);
+                filterList.selectAll("div")
+                    .data(data).enter()
+                    .append("div")
+                    .classed("w3-container", true)
+                    .html(function(d,i) {
+                        console.log(d);
+                         return '<div class="w3-container w3-half">' + d.name + '</div><div class="w3-container w3-half">' + parseFloat(d.area).toFixed(0) + '</div>';
+                     })
+                    .on("click", select);
+                
+                function select(){
+                    var elem = d3.select(this);
+
+                    elem.classed("w3-theme-l4", true)
+                        .on("click", deselect);
+                    
+                    merge.push(elem.data()[0].getIndex())
+                }
+                
+                function deselect(){
+                    var elem = d3.select(this);
+
+                    elem.classed("w3-theme-l4", false)
+                        .on("click", select);
+                    
+                    var i = merge.indexOf(elem.data()[0].getIndex());
+                    if(i != -1) {
+                        merge.splice(i, 1);
                     }
                 }
+            }
+            
+            function setYBarChart(result){
+                datastructure.headerData.forEach(function(entry){
+                    var sum = 0;
+                    entry.values.forEach(function(child){
+                        sum += result[child.getIndex()];
+                        child.yWeight = result[child.getIndex()];
+                    }); 
+                    
+                    entry.yWeight = sum;
+                });
                 
-                //create date objects
-                for(index in dates){
-                    dates[index] = new Date(dates[index]);
+                drawYBarChart();
+            }
+                    
+                      
+        
+            var X = [[1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0],[1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1],[0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0],[1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0],[0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0],[0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0],[1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],[1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0],[1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0],[0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0],[0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0],[1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0]];
+            
+            function calculateProjection(data){
+                    $( "#observationButton" ).prop( "disabled", true );
+                    showObservation = true;
+                    showObservations();
+                
+                    
+                    //worker2.terminate();
+                    //worker3.terminate();
+                    //worker4.terminate();
+                    
+                    worker = new Worker('calcWorker.js');
+                    worker2 = new Worker('calcWorker2.js');
+                    worker3 = new Worker('calcWorker3.js');
+                    worker4 = new Worker('calcWorker4.js');
+                
+                    worker.postMessage([datastructure.indicatorMatrix]);
+                    
+                    worker.onmessage = function(e) {
+                        worker.terminate();
+                        worker2.postMessage([e.data.Z]);
+                        
+                        worker2.onmessage = function(f) {
+                            worker2.terminate();
+                            worker3.postMessage([e.data, f.data]);
+                            worker4.postMessage([e.data, f.data, datastructure.headerData.length]);
+                        }
+                        //worker.terminate();
+                        setColSum(e.data.colSum);
+                    }
+                    
+                    worker3.onmessage = function(e) { 
+                        console.log("fin3");console.log(e); 
+                        setXCoord(e.data.xCoord); 
+                        $( "#observationButton" ).prop( "disabled", false );
+                        worker3.terminate();
+                    };
+                
+                    worker4.onmessage = function(e) { 
+                        console.log("fin4");console.log(e); 
+                        setRelevance(e.data.yx2);
+                        setYCoord(e.data.yCoord); 
+                        setXBarChart(e.data.wY1);
+                        setYBarChart(e.data.wY2);
+                        setErrorBarChart(e.data.wY3);
+                        worker4.terminate();
+                    };
+            }
+            
+            function randomGenerator(){
+                var indicatorMatrix= []
+                var columnMax = 30;
+                var rowMax = 1000;
+
+                for(var j = 0; j < rowMax; j++){
+                    var myArray = [];
+
+                    for (var i = 0; i < columnMax; i++) {
+                        myArray.push(Math.round(Math.random()));
+                    }
+
+                    indicatorMatrix.push(myArray);
                 }
                 
-                //store the datasets as global variables
-                datasets = dataByStation;
-                datasetLocation = locationData;
-                
-                
-                //create the overlay
-                var overlay = new google.maps.OverlayView();
-                overlay.onAdd = function() {
-                    layer = d3.select(this.getPanes().overlayMouseTarget).append("div")
-                        .attr("class", "stations");
+                calculateProjection(indicatorMatrix);
+            }
+            
+            
+            function loadCSV(){
+                var csv = $("#dataSelect").val();
+                console.log(csv);
+                d3.csv(csv, function(data) {
+                    
+                    datastructure = new Datastructure(data);
+                    datastructure.init();
+                                    
+                    calculateProjection(datastructure.indicatorMatrix);
+                    drawDimensionsView(datastructure.headerData);
+                    drawFilterView(datastructure.headerCopy);
+                });
+            }
 
-                    //on draw function
-                    overlay.draw = function() {
-                      projection = this.getProjection();
-                        
-                      drawOverlay();
-                      //populate overlay with initial data
-                      updateLocationData(new Date("1993"));
-                    };
-                };
-
-                overlay.setMap(map);
-                
-                //populate visualization with initial data of station 30
-                initDateSlider(dates);
-                changeStation("30");
-            });
-        });
-    </script>
-</body>
+        </script>
+    </body>
 </html>
