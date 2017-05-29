@@ -1,3 +1,19 @@
+/**
+ * Represents a value. A value always belongs to an attribute. An attribute can have multiple values, which are in an array, and if two values are merged, one value is removed to from the array and appended to the reference
+ * @constructor
+ * @param {string} name - The name of the value.
+ * @param {string} attrName - Name of the parent attribute.
+ * @param {int} index - Index for reference in the visualization.
+ * @param {int} sum - Total sum of entrys with this value.
+ * @param {float} relevance - Value of relevance calculated by the MCA.
+ * @param {d3.color} color - Color of the value in the visualization.
+ * @param {float} xWeight - Contribution to the x-axis during the MCA.
+ * @param {float} yWeight - Contribution to the y-axis during the MCA.
+ * @param {float} xCoord - Coordinate on the x-Axis of the visualization.
+ * @param {float} yCoord - Coordinate on the y-Axis of the visualization.
+ */
+
+
 function Value(name, attrName, index, sum, relevance, color, xWeight, yWeight, xCoord, yCoord){
     this.name = name;
     this.attrName = attrName;
@@ -9,12 +25,18 @@ function Value(name, attrName, index, sum, relevance, color, xWeight, yWeight, x
     this.yWeight = yWeight;
     this.xCoord = xCoord;
     this.yCoord = yCoord;
+    
+    /** ID is used in the visualization to group voronoi cells by distance.*/
     this.id = 0;
+    /** Area is the size of the area of the voronoi cell in % of the whole area.
     this.area = 0;
     
+    /** Next element in the double linked list*/
     this.next = null;
+    /** Last element in the double linked list*/
     this.last = null;
     
+    /** Returns the name of itself, or recursivly of all appended values. */
     this.getName = function (){
         if(this.next === null)
             return this.name;
@@ -22,6 +44,7 @@ function Value(name, attrName, index, sum, relevance, color, xWeight, yWeight, x
             return this.name + ", " + this.next.getName();
     }
     
+    /** Returns the index of itself, or recursivly of the first element in the list. */
     this.getIndex = function () {
         if(this.last === null){
             return this.index;
@@ -30,19 +53,23 @@ function Value(name, attrName, index, sum, relevance, color, xWeight, yWeight, x
         }
     }
     
+    /** Remove element from list. */
     this.removeFromList = function(){
         this.next = null;
         this.last = null;
     }
     
+    /** Set next element of list. */
     this.setNext = function(next){
         this.next = next;
     }
     
+    /** Set last element of list. */
     this.setLast = function(last){
         this.last = last;
     }
     
+    /** Get List head. */
     this.getHead = function(){
         if(this.next === null){
             return this;
@@ -51,6 +78,7 @@ function Value(name, attrName, index, sum, relevance, color, xWeight, yWeight, x
         }
     }
     
+    /** Set index of itself, and for all appended elements. */
     this.setIndex = function(index){
         this.index = index;
         
@@ -58,15 +86,31 @@ function Value(name, attrName, index, sum, relevance, color, xWeight, yWeight, x
             this.next.setIndex(index);
     }
     
+    /** Get next element in list*/
     this.getNext = function(){
         return this.next;
     }
     
+    /** Get last element in list*/
     this.getLast = function(){
         return this.last;
     }
 }
 
+
+/**
+ * Represents a value. A value always belongs to an attribute. An attribute can have multiple values, which are in an array, and if two values are merged, one value is removed to from the array and appended to the reference
+ * @constructor
+ * @param {string} name - The name of the attribute.
+ * @param {Array} values - Name of the parent attribute.
+ * @param {int} relevance - Index for reference in the visualization.
+ * @param {int} color - Total sum of entrys with this value.
+ * @param {float} xWeight - Value of relevance calculated by the MCA.
+ * @param {d3.color} yWeight - Color of the value in the visualization.
+ * @param {float} errorWeight - Contribution to the x-axis during the MCA.
+ * @param {float} yWeight - Contribution to the y-axis during the MCA.
+ * @param {float} filtered - Coordinate on the x-Axis of the visualization.
+ */
 function Attribute(name, values, relevance, color, xWeight, yWeight, errorWeight, filtered){
     this.name = name;
     this.values = values;
