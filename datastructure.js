@@ -128,19 +128,31 @@ function Attribute(name, values, relevance, color, xWeight, yWeight, errorWeight
 Datastructure is the container object for the datastructe of the underlying data. The constructor takes as input a CSV object (must be parsed by D3)
 */
 function Datastructure(data){
+    /**Raw data */
     this.data = data;
     this.drawableData = [];
+    /**Name of attributes and name of associated values of attribute. Used for parsing */
     this.attributes = {};
+    /**Number of Attributes */
     this.numAttributes = 2;
     
+    /**Indicator matrix for the MCA */
     this.indicatorMatrix = [];
+    /**Header data */
     this.header = [];
+    /**Datastructure used to store the attributes. */
     this.headerData = [];
+    /**Copy of header data datastructure. Filter and merging operations are applied to this before swapping it with the header data for recalculation */
     this.headerCopy = [];
+    /**Array of used colors*/
     this.colors = [];
+    /**Stores the mapping for an Attributes values name to an index in the indicator matrix*/
     this.nameToIndexMap = {};
+    /**Number of columns in the indicatormatrix (columns) */
     this.indicatorSize = 0;
+    /**Number of columns in the indicatormatrix after applying the filtering/merging */
     this.newIndicatorSize = 0;
+    /**Array of observations calculated 2D coordinates */
     this.rowCoordinates = [];
     
     /*
@@ -197,34 +209,21 @@ function Datastructure(data){
         this.indicatorSize = ind;
         this.newIndicatorSize = ind;
         this.createNameToIndexMap();
-        //console.log(this.nameToIndexMap);
         this.calcIndicatorMatrix();
-        //console.log(this.indicatorMatrix);
         
-        //console.log(headerData);
-
-        //this.header = attributes;
-        //this.headerData = headerData;
         this.colors = colorArray;
         this.mergeList = [];
         
         
         this.copyHeader();
-        //console.log(headerCopy);
     }
-    
-    /*function which calculates the header in list format for D3.js
-    */
-    this.calculateHeader = function(){
-        
-    }
-    
-    /*
-    Function to merge the values of an attribute. List with indices of values to merge. Attribute name of the values.
+       
+    /**
+    Function to merge the values of an attribute. 
+    @param {Array} mergeList - List of indices of values to merge.
+    @param {string} mergeParent - The name of the attribute which contains the values to merge.
     */
     this.merge = function(mergeList, mergeParent){
-        console.log(mergeList);
-        console.log(mergeParent);
         
         if(mergeList.length <= 1)
             return;
@@ -248,7 +247,6 @@ function Datastructure(data){
                             last = child.getHead();
                             last.setNext(next);
                             next.setLast(last);
-                            console.log(child.getName());
                         }
                         else if(first){
                             next = child
@@ -259,9 +257,7 @@ function Datastructure(data){
                             next.setLast(child);
                             
                             next = child;
-                            console.log(index);
-                            console.log("test");
-                            
+                          
                             entry.values.splice(index, 1);
                         }
                         
@@ -278,10 +274,14 @@ function Datastructure(data){
                 });
             }
         });
-        console.log(this.headerCopy);
         this.newIndicatorSize = ind;
     }
-    
+
+     /**
+    Function to split merged values of an attribute. 
+    @param {Array} splitList - List of indices of values to split.
+    @param {string} splitParent - The name of the attribute which contains the values to split.
+    */   
     this.split = function(splitList, splitParent){
         
         var ind = 0;
@@ -322,9 +322,9 @@ function Datastructure(data){
         this.newIndicatorSize = ind;
     }
     
+    /**Function to make a deep copy of the headerData datastructure */
     this.copyHeader = function(){
         var that = this;
-        console.log("copying header");
         this.headerCopy = [];
         
         this.headerData.forEach(function(entry){
@@ -350,31 +350,22 @@ function Datastructure(data){
             that.headerCopy.push(new Attribute(entry.name, childEntry, entry.relevance, entry.color, entry.xWeight, entry.yWeight, entry.errorWeight, entry.filtered));
         });
         
-        console.log(this.headerCopy);
         //this.headerCopy = headerCopy;
     }
     
+    /**Swap the headerCopy with the headerData */
     this.setCopyHeaderActive = function(){
-        console.log("Set header copy active")
-        console.log(this.headerCopy);
+
         this.headerData = this.headerCopy;
-        console.log(this.headerData);
-        
         this.indicatorSize = this.newIndicatorSize;
         
-        console.log("Calculate name to index map")
         this.createNameToIndexMap();
-        console.log(this.nameToIndexMap);
-        
-        console.log("Calculate Indicator matrix")
-        
         this.calcIndicatorMatrix();
-        console.log(this.indicatorMatrix);
         
         this.copyHeader();
     }
     
-    /*
+    /** 
     Helper function to create an index map for values of the attributes. This is needed to create the indicator matrix
     */
     this.createNameToIndexMap = function(){
@@ -408,11 +399,9 @@ function Datastructure(data){
         
         this.indicatorSize = ind;
         this.nameToIndexMap = indexMap;
-        console.log(this.nameToIndexMap);
-        console.log("header");
-        console.log(this.headerData);
     }
     
+    /**Calculate the indicator matrix from the raw data */
     this.calcIndicatorMatrix = function(){
         var indicatorMatrix = []
         var that = this;
@@ -431,10 +420,13 @@ function Datastructure(data){
 
             indicatorMatrix.push(row);
         });
-        console.log(indicatorMatrix);
+  
         this.indicatorMatrix = indicatorMatrix;
     }
     
+    /**Set the column coordinates of a value of an attribute
+     * @param{Array} x,y coordinates
+     */
     this.setColumnCoordinate = function(coords){
         this.headerData.forEach(function(attribute){
             if(!attribute.filtered)
@@ -445,7 +437,9 @@ function Datastructure(data){
         });
     }
     
-    /**/
+    /** Get a flat array for the visualization with d3. Also merge two values of an attribute if the distance is less than delta
+     * @param{float} Threshold for merging two values by distance
+    */
     this.getFlatJSON = function(delta){
         var flat = [];
         var id = 0;
@@ -457,7 +451,7 @@ function Datastructure(data){
                     flat.push(value);
                 });    
         });
-        console.log(delta);
+
         for(var i = 0; i < flat.length; i++){
             for(var j = (i+1); j < flat.length; j++){
                 if(isWithinDelta(delta, flat[i].xCoord, flat[i].yCoord, flat[j].xCoord, flat[j].yCoord)){
@@ -469,6 +463,10 @@ function Datastructure(data){
         return flat;
     }
     
+    /** Set the state of an attribute to filtered. This omits it from MCA calculations and visualization
+     * @param{String} Name of the attribute
+     * @param{Bool} Boolean if a value should be filtered 
+    */
     this.setFilteredAttribute = function(name, isFiltered){
         this.headerCopy.forEach(function(attribute){
             if(attribute.name == name){
@@ -477,6 +475,9 @@ function Datastructure(data){
         });
     }
     
+    /** Get an array of names, colors and coordinates for an Observation. The color is calculated by the value of the observation of the attribute specified with its name in the function head.
+     * @param{String} Name of the attribute
+     * */
     this.getColorByObservation = function(catName){
         var colorArray = [];
         var that = this;
@@ -492,15 +493,20 @@ function Datastructure(data){
                colorArray.push({color:d3.rgb(0,0,0), name: name, coord: that.rowCoordinates[i]});
             });
         }
-        console.log(colorArray);
         
         return colorArray;
     }
     
+    /** Set the coordinates of Observations. This is no longer needed
+     * @param{Array} Name of the attribute
+     * */
     this.setRowCoordinates = function(coordinates){
         this.rowCoordinates = coordinates;
     }
     
+    /** Set the size of the area of a voronoi region
+     * @param{Array} Area of the voronoi region of all values
+     * */
     this.setArea = function(area){
         this.headerCopy.forEach(function(entry){
             entry.values.forEach(function (child){
@@ -508,15 +514,23 @@ function Datastructure(data){
             });
         });    
         
-        console.log(this.headerCopy);
     }
 }
 
+/**Helper function to calculate if the distance from (x1,y1) to (x2,y2) is less than delta 
+ * @param{float} threshold value for the distance
+ * @param{float} x1 coordinate
+ * @param{float} x2 coordinate
+ * @param{float} y1 coordinate
+ * @param{float} y2 coordinate
+*/
 function isWithinDelta(delta, x1, y1, x2, y2){
     return (Math.pow((x1-x2),2) + Math.pow((y1-y2),2)) < delta*delta;
 }
 
-//helper function which returns a color from the color wheel. Colors taken from ColorBrewer2.0
+/**Helper function to return a color by index from a color mapping. A modulo is used for cyclic color return
+ * @param(index) Index which selects the color to return.
+ */
 function getColor(index){
     var colors = ['rgb(166,206,227)','rgb(31,120,180)','rgb(178,223,138)','rgb(51,160,44)','rgb(251,154,153)','rgb(227,26,28)','rgb(253,191,111)','rgb(255,127,0)','rgb(202,178,214)','rgb(106,61,154)'];
     var c = d3.hsl(colors[index % 10]);
